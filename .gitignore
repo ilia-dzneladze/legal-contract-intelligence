@@ -1,1 +1,5 @@
 myenv/
+models/*
+__pycache__/
+*.pkl
+.env
