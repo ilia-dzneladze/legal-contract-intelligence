@@ -9,7 +9,7 @@ _repo_root = os.path.abspath(os.path.join(_script_dir, "../.."))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.classifier.data_loader import load_data
+from src.data_loader import load_data
 from sklearn.model_selection import train_test_split
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, TrainingArguments, Trainer
 from datasets import Dataset

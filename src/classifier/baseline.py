@@ -8,7 +8,7 @@ _repo_root = os.path.abspath(os.path.join(_script_dir, "../.."))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.classifier.data_loader import load_data
+from src.data_loader import load_data
 from sklearn.pipeline import Pipeline
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression

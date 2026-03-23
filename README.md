@@ -12,7 +12,7 @@ Portfolio project for an ML Engineer (NLP) Intern interview at Intapp.
 |-----|------|--------|
 | 1 | Contract type classification (TF-IDF baseline + Legal-BERT) | ✅ |
 | 2 | Clause extraction (extractive QA) | ✅ |
-| 3 | Semantic search + RAG | |
+| 3 | Semantic search + RAG | ✅ |
 | 4 | Streamlit demo | |
 | 5 | Evaluation + write-up | |
 
@@ -27,10 +27,11 @@ Portfolio project for an ML Engineer (NLP) Intern interview at Intapp.
 
 ### Fine-tuned Legal-BERT (nlpaueb/legal-bert-base-uncased)
 - Validation accuracy: 94%, macro F1: 0.93
-- Massive improvement over baseline, especially on overlapping types
+- Large accuracy gain over baseline (+29 pp), particularly on overlapping contract types
 - Model available on HuggingFace: https://huggingface.co/iliadzneladze/legal-BERT-clf
 
-To test the classifier:
+#### Usage
+To test the hosted model:
 ```python
 from transformers import pipeline
 clf = pipeline("text-classification", model="iliadzneladze/legal-BERT-clf")
@@ -38,16 +39,23 @@ result = clf("This agreement shall govern the franchise relationship...")
 print(result)
 ```
 
+### Comparison
+- **Accuracy:** TF-IDF/LogReg achieves 65% accuracy / 0.60 macro F1. Legal-BERT achieves 94% accuracy / 0.93 macro F1 — a 29-point improvement.
+- **Training cost:** TF-IDF trains in seconds on CPU. Legal-BERT requires ~1 hour of GPU fine-tuning.
+- **Inference:** TF-IDF runs locally in milliseconds with no dependencies beyond scikit-learn. Legal-BERT requires a GPU or the hosted HuggingFace model.
+- **Flexibility:** TF-IDF struggles with overlapping contract types due to shallow lexical features. Legal-BERT handles ambiguous types well thanks to domain-specific pretraining on legal corpora.
+
+---
 
 ## Day 2: Information Extraction
 
-### Approach A: Fine-tuned RoBERTa (deepset/roberta-base-squad2)
+### Fine-tuned RoBERTa (deepset/roberta-base-squad2)
 - Fine-tuned on CUAD QA pairs (8 clause types, 3570 QA pairs)
 - Training loss: 0.041 → 0.015 over 3 epochs
 - Model lost due to Colab runtime disconnect before evaluation
 - To be retrained and evaluated when compute is available
 
-### Approach B: LLM-based extraction (Groq + Llama 3.1 8B)
+### LLM-based extraction (Groq + Llama 3.1 8B)
 - Zero-shot extraction, no fine-tuning required
 - Overall accuracy: 90.5% (19/21 correct)
 - Tested on 5 of 8 clause types across 20 contracts
@@ -63,6 +71,78 @@ print(result)
 - **Cost:** RoBERTa requires ~2.5 hours of GPU training but runs free at inference. LLM requires no training but costs per API call (~0.001 per extraction).
 - **Latency:** RoBERTa runs locally in milliseconds. LLM depends on API response time (~0.5-1s per call).
 - **Flexibility:** LLM handles new clause types with just a prompt change. RoBERTa needs retraining for new clause types.
+
+### Running LLM-based Extraction
+
+Requires a Groq API key. Get one free at [console.groq.com](https://console.groq.com), then create a `.env` file in the repo root:
+```
+GROQ_API_KEY=your_key_here
+```
+
+Make sure `CUADv1.json` is in `data/training/`, then run:
+```bash
+python -m src.extractor.LLM
+```
+
+Expected output — per-extraction results followed by a summary:
+```
+[1] Governing Law: ✓
+[2] Change Of Control: ✓
+...
+Total comparisons: 21
+Accuracy: 90.48%
+
+Per clause type:
+Assignment                      0.833333
+Change Of Control               1.000000
+Governing Law                   1.000000
+...
+```
+
+**Colab:** set the key as a Colab secret (Secrets panel → `GROQ_API_KEY`) and load it before running:
+```python
+import os
+from google.colab import userdata
+os.environ["GROQ_API_KEY"] = userdata.get("GROQ_API_KEY")
+
+!python -m src.extractor.LLM
+```
+
+---
+
+## Day 3: Semantic Search + RAG
+
+### Indexing (all-MiniLM-L6-v2 + ChromaDB)
+- Contracts chunked into 500-word windows with 50-word overlap
+- ~510 contracts → ~30k chunks embedded with `sentence-transformers/all-MiniLM-L6-v2`
+- Embeddings stored in a persistent ChromaDB collection at `data/chroma_db/`
+
+### RAG Pipeline (Groq + Llama 3.1 8B)
+- Query → top-5 chunk retrieval via ChromaDB vector search
+- Retrieved chunks passed as context to Llama 3.1 8B with a legal-analyst system prompt
+- Model instructed to cite source contracts and refuse to answer out-of-context questions
+
+To run the full pipeline:
+```bash
+# Step 1: build the index (run once)
+python -m src.search.index
+
+# Step 2: ask questions
+python -m src.search.rag
+```
+
+Example output:
+```
+Q: Which contracts have governing law clauses mentioning Delaware?
+
+Retrieved chunks:
+--- Chunk 1 [ContractA.pdf] ---
+...the laws of the State of Delaware shall govern...
+
+--- RAG Answer ---
+Based on the excerpts, the following contracts reference Delaware as governing law:
+- ContractA.pdf: "the laws of the State of Delaware shall govern..."
+```
 
 ---
 
@@ -147,48 +227,15 @@ Checkpoints are saved directly to your Drive (`MyDrive/legal-bert-clf/` and `MyD
 
 ---
 
-### LLM-based Clause Extraction (Groq)
-
-No GPU required. The script calls the Groq API and evaluates against CUAD ground truth.
-
-**1. Get a free Groq API key** at [console.groq.com](https://console.groq.com).
-
-**2. Create a `.env` file in the repo root:**
-```
-GROQ_API_KEY=your_key_here
-```
-
-**3. Make sure `CUADv1.json` is in `data/training/` (same as above), then run:**
-```bash
-python -m src.extractor.LLM
-```
-
-Expected output — per-extraction results followed by a summary:
-```
-[1] Governing Law: ✓
-[2] Change Of Control: ✓
-...
-Total comparisons: 21
-Accuracy: 90.48%
-
-Per clause type:
-Assignment                      0.833333
-Change Of Control               1.000000
-Governing Law                   1.000000
-...
-```
-
-**Colab:** set the key as a Colab secret (Secrets panel → `GROQ_API_KEY`) and load it before running:
-```python
-import os
-from google.colab import userdata
-os.environ["GROQ_API_KEY"] = userdata.get("GROQ_API_KEY")
-
-!python -m src.extractor.LLM
-```
-
----
-
 ## Stack
 
-Python | PyTorch | HuggingFace Transformers | scikit-learn | pandas
+| Tool | Purpose |
+|------|---------|
+| Python | Core language |
+| PyTorch | Model training and inference |
+| HuggingFace Transformers | Legal-BERT and RoBERTa fine-tuning |
+| scikit-learn | TF-IDF baseline |
+| sentence-transformers | Chunk embeddings for semantic search |
+| ChromaDB | Vector store for RAG retrieval |
+| Groq API + Llama 3.1 8B | LLM-based extraction and RAG generation |
+| pandas | Data loading and preprocessing |

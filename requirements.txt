@@ -7,3 +7,5 @@ seaborn
 torch
 groq
 python-dotenv
+chromadb
+sentence-transformers
