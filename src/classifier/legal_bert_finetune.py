@@ -1,14 +1,24 @@
+import os
+import sys
+import torch
+import numpy as np
+
+# Allow running as a script from any CWD (Colab, repo root, etc.)
+_script_dir = os.path.dirname(os.path.abspath(__file__))
+_repo_root = os.path.abspath(os.path.join(_script_dir, "../.."))
+if _repo_root not in sys.path:
+    sys.path.insert(0, _repo_root)
+
 from src.classifier.data_loader import load_data
 from sklearn.model_selection import train_test_split
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, TrainingArguments, Trainer
 from datasets import Dataset
-import numpy as np
-from transformers import AutoModelForSequenceClassification, TrainingArguments, Trainer
 from sklearn.metrics import classification_report, f1_score, accuracy_score
 
 # get data ready
 
-contracts = load_data("CUADv1.json")
+# Place CUADv1.json in data/training/ relative to repo root, or set CUAD_PATH env var.
+contracts = load_data(os.environ.get("CUAD_PATH", "CUADv1.json"))
 
 labels = sorted(contracts["contract_type"].unique())
 label2id = {l: i for i, l in enumerate(labels)}
@@ -55,8 +65,15 @@ def compute_metrics(eval_pred):
         "macro_f1": f1_score(label_ids, preds, average="macro"),
     }
 
+_on_colab = os.path.isdir("/content")
+_output_dir = (
+    "/content/drive/MyDrive/legal-bert-clf" if _on_colab
+    else os.path.join(_repo_root, "model/legal-bert-clf")
+)
+_use_fp16 = torch.cuda.is_available()
+
 training_args = TrainingArguments(
-    output_dir="./legal-bert-clf",
+    output_dir=_output_dir,
     num_train_epochs=10,
     per_device_train_batch_size=8,
     per_device_eval_batch_size=16,
@@ -68,7 +85,7 @@ training_args = TrainingArguments(
     load_best_model_at_end=True,
     metric_for_best_model="macro_f1",
     greater_is_better=True,
-    fp16=True,
+    fp16=_use_fp16,
     report_to="none",
     seed=42,
 )
@@ -91,5 +108,6 @@ true_labels = val_df["label"].values
 
 print(classification_report(true_labels, preds, target_names=labels))
 
-trainer.save_model("./legal-bert-clf-final")
-tokenizer.save_pretrained("./legal-bert-clf-final")
+_final_dir = os.path.join(_output_dir, "final")
+trainer.save_model(_final_dir)
+tokenizer.save_pretrained(_final_dir)

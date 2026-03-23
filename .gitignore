@@ -1,5 +1,7 @@
 myenv/
-models/*
+data/
+models/
+legal-bert-clf-final/
 __pycache__/
 *.pkl
 .env

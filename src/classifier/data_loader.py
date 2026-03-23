@@ -1,5 +1,10 @@
+import os
 import pandas as pd
 import json
+
+_data_dir = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "../../data/training")
+)
 
 KNOWN_TYPES = [
     "Affiliate Agreement",
@@ -30,7 +35,7 @@ KNOWN_TYPES = [
 ]
 
 def load_data(filename):
-    with open(f"data/training/{filename}") as f:
+    with open(os.path.join(_data_dir, filename)) as f:
         raw = json.load(f)
 
     rows = []
