@@ -9,7 +9,7 @@ Portfolio project exploring NLP techniques for legal document understanding — 
 ## Contract Type Classification
 
 ### Baseline: TF-IDF + Logistic Regression
-- Trained on ~430 contracts across 23 types
+- Trained on 430 contracts across 23 types
 - Model saved locally as pickle
 
 ### Fine-tuned Legal-BERT (nlpaueb/legal-bert-base-uncased)
@@ -27,7 +27,7 @@ print(result)
 
 ### Evaluation (CUAD held-out test set — 46 contracts, 7 classes)
 
-> Evaluated on `test.json`, CUAD's official held-out set. Coverage is limited to 7 of 23 contract types due to CUAD filename conventions; per-class metrics for the remaining 16 types require additional labeled data.
+Evaluated on `test.json`, CUAD's official held-out set. Coverage is limited to 7 of 23 contract types due to CUAD filename conventions; per-class metrics for the remaining 16 types require additional labeled data.
 
 | Model | Accuracy | Macro F1 |
 |-------|----------|----------|
@@ -64,7 +64,7 @@ python -m src.classifier.evaluate
 
 ### Fine-tuned RoBERTa (deepset/roberta-base-squad2)
 - Fine-tuned on CUAD QA pairs (8 clause types, 3570 QA pairs)
-- Training loss: 0.041 → 0.015 over 3 epochs
+- Training loss: 0.041 -> 0.015 over 3 epochs
 - Model available on HuggingFace: https://huggingface.co/iliadzneladze/roBERTa_cuad_finetune
 
 #### Usage
@@ -88,7 +88,7 @@ with torch.no_grad():
 start = torch.argmax(out.start_logits).item()
 end   = torch.argmax(out.end_logits).item()
 print(tokenizer.decode(inputs["input_ids"][0][start:end+1], skip_special_tokens=True))
-# → "the laws of the State of Delaware"
+# "the laws of the State of Delaware"
 ```
 
 ### LLM-based extraction (Groq + Llama 3.1 8B)
@@ -104,7 +104,7 @@ print(tokenizer.decode(inputs["input_ids"][0][start:end+1], skip_special_tokens=
 
 ### Evaluation (CUAD training set — 21 QA pairs from 20 contracts, 5 clause types)
 
-> Evaluated on the first 20 contracts in `CUADv1.json` with context ≤ 8000 characters, matching one of 8 target clause types. Correctness is determined by substring match (gold ⊆ predicted or predicted ⊆ gold). Only 5 of 8 clause types appeared in this subset.
+Evaluated on the first 20 contracts in `CUADv1.json` with context ≤ 8000 characters, matching one of 8 target clause types. Correctness is determined by substring match (gold ⊆ predicted or predicted ⊆ gold). Only 5 of 8 clause types appeared in this subset.
 
 | Model | Overall Accuracy |
 |-------|-----------------|
@@ -129,7 +129,7 @@ python -m src.extractor.evaluate
 
 ### Comparison
 - **Accuracy:** Both models achieve 90.5% on this evaluation subset, with errors on different examples.
-- **Cost:** RoBERTa requires ~2.5 hours of GPU training but runs free at inference. LLM requires no training but costs per API call (~$0.001 per extraction).
+- **Cost:** RoBERTa requires around 2.5 hours of GPU training but runs free at inference. LLM requires no training but costs per API call (~$0.001 per extraction).
 - **Latency:** RoBERTa runs locally in milliseconds. LLM depends on API response time (~0.5–1s per call).
 - **Flexibility:** LLM handles new clause types with just a prompt change. RoBERTa needs retraining for new clause types.
 
